@@ -3,6 +3,8 @@
 
 #include "cppcoro/detail/is_awaiter.hpp"
 
+using namespace cppcoro;
+using namespace cppcoro::detail;
 
 struct awaiter1 {
 
