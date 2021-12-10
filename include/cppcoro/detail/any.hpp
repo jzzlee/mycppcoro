@@ -8,15 +8,15 @@
 namespace cppcoro
 {
     namespace detail
-	{
-		// Helper type that can be cast-to from any type.
-	    struct any
-		{
-		    template<typename T>
-		    any(T&&) noexcept
-			{}
-		};
-	}
+    {
+        // Helper type that can be cast-to from any type.
+        struct any
+        {
+            template<typename T>
+            any(T&&) noexcept
+            {}
+        };
+    }
 }
 
 #endif

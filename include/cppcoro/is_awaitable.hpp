@@ -16,9 +16,9 @@ namespace cppcoro
 
     template<typename T> concept is_awaitable_concept = 
     requires (T x) {
-		{ cppcoro::detail::get_awaiter(x) };
-	};
-	
+        { cppcoro::detail::get_awaiter(x) };
+    };
+    
     template<is_awaitable_concept T>
     struct is_awaitable<T>: std::true_type {};
 
