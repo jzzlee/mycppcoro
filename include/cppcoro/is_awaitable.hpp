@@ -11,19 +11,19 @@
 
 namespace cppcoro
 {
-	template<typename T>
+    template<typename T>
     struct is_awaitable: std::false_type {};
 
-	template<typename T> concept is_awaitable_concept = 
-	requires (T x) {
+    template<typename T> concept is_awaitable_concept = 
+    requires (T x) {
 		{ cppcoro::detail::get_awaiter(x) };
 	};
 	
-	template<is_awaitable_concept T>
+    template<is_awaitable_concept T>
     struct is_awaitable<T>: std::true_type {};
 
-	template<typename T>
-	constexpr bool is_awaitable_v = is_awaitable<T>::value;
+    template<typename T>
+    constexpr bool is_awaitable_v = is_awaitable<T>::value;
 }
 
 #endif

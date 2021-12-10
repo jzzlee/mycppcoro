@@ -7,13 +7,13 @@
 
 namespace cppcoro
 {
-	namespace detail
+    namespace detail
 	{
 		// Helper type that can be cast-to from any type.
-		struct any
+	    struct any
 		{
-			template<typename T>
-			any(T&&) noexcept
+		    template<typename T>
+		    any(T&&) noexcept
 			{}
 		};
 	}
