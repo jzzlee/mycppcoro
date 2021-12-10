@@ -32,6 +32,9 @@ namespace cppcoro
 
         template<is_awaiter_concept T>
         struct is_awaiter<T>: std::true_type {};
+
+        template<typename T>
+        constexpr bool is_awaiter_v = is_awaiter<T>::value;
     }
 }
 
