@@ -18,12 +18,12 @@ namespace cppcoro
     };
 
     template<await_traits_concept T>
-	struct awaitable_traits
-	{
-		using awaiter_t = decltype(cppcoro::detail::get_awaiter(std::declval<T>()));
+    struct awaitable_traits
+    {
+        using awaiter_t = decltype(cppcoro::detail::get_awaiter(std::declval<T>()));
 
-		using await_result_t = decltype(std::declval<awaiter_t>().await_resume());
-	};
+        using await_result_t = decltype(std::declval<awaiter_t>().await_resume());
+    };
 }
 
 #endif
