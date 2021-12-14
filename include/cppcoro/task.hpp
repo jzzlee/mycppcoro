@@ -80,7 +80,7 @@ namespace cppcoro
 
             task<T> get_return_object() noexcept;
 
-            void unhanlded_exception() noexcept
+            void unhandled_exception() noexcept
             {
                 ::new (static_cast<void*>(std::addressof(m_exception))) std::exception_ptr(
                     std::current_exception());
@@ -88,7 +88,7 @@ namespace cppcoro
             }
 
             template<typename VALUE>
-            requires (std::is_convertible_v<VALUE&&, T>>)
+            requires (std::is_convertible_v<VALUE&&, T>)
             void return_value(VALUE&& value) noexcept(std::is_nothrow_constructible_v<T, VALUE&&>)
             {
                 ::new (static_cast<void*>(std::addressof(m_value))) T(std::forward<VALUE>(value));
@@ -106,7 +106,7 @@ namespace cppcoro
                 return m_value;
             }
 
-            using rvalue_type = std::confitional_t<
+            using rvalue_type = std::conditional_t<
             std::is_arithmetic_v<T> || std::is_pointer_v<T>,
             T,
             T&&>;
@@ -131,7 +131,7 @@ namespace cppcoro
             {
                 T m_value;
                 std::exception_ptr m_exception;
-            }
+            };
         };
 
         template<>
@@ -143,7 +143,7 @@ namespace cppcoro
             task<void> get_return_object() noexcept;
             void return_void() noexcept {}
 
-            void unhanlded_exception() noexcept
+            void unhandled_exception() noexcept
             {
                 m_exception = std::current_exception();
             }
@@ -161,14 +161,14 @@ namespace cppcoro
         };
 
         template<typename T>
-        class task_promise_base<T&>: public task_promise_base
+        class task_promise<T&>: public task_promise_base
         {
         public:
             task_promise() noexcept = default;
 
             task<T&> get_return_object() noexcept;
             
-            void unhanlded_exception() noexcept
+            void unhandled_exception() noexcept
             {
                 m_exception = std::current_exception();
             }
