@@ -1,5 +1,6 @@
 #include <cppcoro/task.hpp>
 #include <cppcoro/sync_wait.hpp>
+#include <cppcoro/logging.hpp>
 
 #include <string>
 #include <type_traits>
@@ -7,25 +8,55 @@
 
 int main()
 {
-    bool started = false;
-    auto func = [&]() -> cppcoro::task<>
-	{
-		started = true;
-		co_return;
-	};
+    set_global_log_level(INFO);
 
-    cppcoro::sync_wait([&]() -> cppcoro::task<>
+    // task doesn't start until awaited
     {
-        auto t = func();
-        assert(!started);
-        std::cout<<started<<std::endl;
+        bool started = false;
+        auto func = [&]() -> cppcoro::task<>
+        {
+            DLOG << "enter func";
+            started = true;
+            co_return;
+        };
 
-        co_await t;
+        cppcoro::sync_wait([&]() -> cppcoro::task<>
+        {
+            DLOG << "enter main lambda function";
+            auto t = func();
+            DLOG << "after call func function";
+            assert(!started);
+            DLOG << "before co_await t";
 
-        assert(started);
-        std::cout<<started<<std::endl;
+            co_await t;
 
-    }());
+            assert(started);
+            DLOG << "after co_await t";
+
+        }());
+
+        DLOG << "before main finished";
+    }
+
+    // task doesn't start until awaited
+    {
+        cppcoro::sync_wait([&]() -> cppcoro::task<>
+        {
+            bool flag = false;
+            cppcoro::task<> t;
+            try
+            {
+                co_await t;
+            }
+            catch (cppcoro::broken_promise& e)
+            {
+                DLOG << "case2: get broken_promise exception";
+                flag = true;
+            }
+            assert(flag);
+        }());
+    }
+
 
     return 0;
 }
