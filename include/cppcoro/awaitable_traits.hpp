@@ -5,7 +5,7 @@
 #ifndef CPPCORO_AWAITABLE_TRAITS_HPP_INCLUDED
 #define CPPCORO_AWAITABLE_TRAITS_HPP_INCLUDED
 
-#include <cppcoro/is_awaitable.hpp>
+#include "cppcoro/is_awaitable.hpp"
 
 #include <type_traits>
 

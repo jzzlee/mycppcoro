@@ -15,5 +15,8 @@ int main()
     static_assert(is_awaitable_v<is_awaiter2> == true);
     static_assert(is_awaitable_v<is_awaiter3> == true);
 
+    static_assert(is_all_awaitables_v<is_awaiter1, not_awaitable1> == false);
+    static_assert(is_all_awaitables_v<is_awaiter1, is_awaiter2> == true);
+
     return 0;
 }

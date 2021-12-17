@@ -1,6 +1,6 @@
 #include <type_traits>
 
-#include <cppcoro/awaitable_traits.hpp>
+#include "cppcoro/awaitable_traits.hpp"
 #include "defines/define_awaitables.hpp"
 
 using namespace cppcoro;

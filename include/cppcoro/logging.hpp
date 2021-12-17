@@ -1,4 +1,5 @@
-#pragma once
+#ifndef CPPCORO_LOGGING_HPP_INCLUDED
+#define CPPCORO_LOGGING_HPP_INCLUDED
 
 #include <iostream>
 #include <sstream>
@@ -39,3 +40,5 @@ private:
 
 #define LOG(x) LogStream(x)
 #define DLOG LOG(DEBUG)
+
+#endif

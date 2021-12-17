@@ -10,7 +10,7 @@
 
 #include <limits>
 
-#include <cppcoro/detail/lightweight_manual_reset_event.hpp>
+#include "cppcoro/detail/lightweight_manual_reset_event.hpp"
 
 
 namespace 

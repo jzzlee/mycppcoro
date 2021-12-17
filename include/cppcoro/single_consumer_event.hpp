@@ -1,9 +1,10 @@
-#pragma once
+#ifndef CPPCORO_SINGLE_CONSUMER_EVENT_HEAD_INCLUDED
+#define CPPCORO_SINGLE_CONSUMER_EVENT_HEAD_INCLUDED
 
 #include <atomic>
 #include <coroutine>
 
-namespace cpproro
+namespace cppcoro
 {
 
     class single_consumer_event
@@ -46,7 +47,7 @@ namespace cpproro
                     return m_event.is_set();
                 }
 
-                bool await_suepend(std::coroutine_handle<> awaiter)
+                bool await_suspend(std::coroutine_handle<> awaiter)
                 {
                     m_event.m_awaiter = awaiter;
 
@@ -80,3 +81,5 @@ namespace cpproro
         std::coroutine_handle<> m_awaiter;
     };
 }
+
+#endif

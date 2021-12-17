@@ -6,9 +6,9 @@
 #include <utility>
 #include <coroutine>
 
-#include <cppcoro/awaitable_traits.hpp>
-#include <cppcoro/detail/lightweight_manual_reset_event.hpp>
-#include <cppcoro/logging.hpp>
+#include "cppcoro/awaitable_traits.hpp"
+#include "cppcoro/detail/lightweight_manual_reset_event.hpp"
+#include "cppcoro/logging.hpp"
 
 namespace cppcoro
 {
@@ -235,11 +235,10 @@ namespace cppcoro
             coroutine_handle_t m_coroutine;
         };
 
-        template<cppcoro::awaitable_traits_concept AWAITABLE>
-        auto make_sync_wait_task(AWAITABLE&& awaitable)
-            -> sync_wait_task<typename cppcoro::awaitable_traits<AWAITABLE&&>::await_result_t> 
+        template<cppcoro::awaitable_traits_concept AWAITABLE,
+        typename RESULT = typename cppcoro::awaitable_traits<AWAITABLE&&>::await_result_t>
+        sync_wait_task<RESULT> make_sync_wait_task(AWAITABLE&& awaitable)
         {
-            using RESULT = typename cppcoro::awaitable_traits<AWAITABLE&&>::await_result_t;
             if constexpr (!std::is_void_v<RESULT>)
             {
                 DLOG << "call " << __FUNCTION__ << " result is not void";

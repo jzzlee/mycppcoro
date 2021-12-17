@@ -5,8 +5,8 @@
 #ifndef CPPCORO_DETAIL_GET_AWAITER_HPP_INCLUDED
 #define CPPCORO_DETAIL_GET_AWAITER_HPP_INCLUDED
 
-#include <cppcoro/detail/is_awaiter.hpp>
-#include <cppcoro/detail/any.hpp>
+#include "cppcoro/detail/is_awaiter.hpp"
+#include "cppcoro/detail/any.hpp"
 
 namespace cppcoro
 {
