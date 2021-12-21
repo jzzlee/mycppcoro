@@ -3,6 +3,7 @@
 #include "cppcoro/sync_wait.hpp"
 #include "cppcoro/when_all_ready.hpp"
 #include "cppcoro/logging.hpp"
+#include "counted.hpp"
 
 #include <string>
 #include <type_traits>
@@ -94,8 +95,23 @@ int main()
         }());
     }
 
+    // destroying task that was never awaited destroys captured args
     {
-        cppcoro::detail::when_all_counter counter(2);
+        counted::reset_counts();
+
+        auto f = [](counted c) -> cppcoro::task<counted>
+        {
+            co_return c;
+        };
+
+        assert(counted::active_count() == 0);
+
+        {
+            auto t = f(counted{});
+            assert(counted::active_count() == 1);
+        }
+
+        assert(counted::active_count() == 0);
     }
 
     return 0;
