@@ -114,5 +114,57 @@ int main()
         assert(counted::active_count() == 0);
     }
 
+    // task destructor destroys result
+    {
+        counted::reset_counts();
+
+        auto f = []() -> cppcoro::task<counted>
+        {
+            co_return counted{};
+        };
+
+        {
+            auto t = f();
+            assert(counted::active_count() == 0);
+
+            auto& result = cppcoro::sync_wait(t);
+
+            assert(counted::active_count() == 1);
+            assert(result.id == 0);
+        }
+
+        assert(counted::active_count() == 0);
+    }
+
+    // task of reference  type
+    {
+        int value = 3;
+        auto f = [&]() -> cppcoro::task<int&>
+        {
+            co_return value;
+        };
+
+        cppcoro::sync_wait([&]() -> cppcoro::task<>
+        {
+            // subcase: awaiting rvalue task
+            {
+                decltype(auto) result = co_await f();
+                static_assert(
+                    std::is_same<decltype(result), int&>::value,
+                    "co_await r-value reference of task<int&> should result in an int&");
+                assert(&result == &value);
+            }
+            // subcase: awaiting lvalue task
+            {
+                auto t = f();
+                decltype(auto) result = co_await t;
+                static_assert(
+                    std::is_same<decltype(result), int&>::value,
+                    "co_await l-value reference of task<int&> should result in an int&");
+                assert(&result == &value);
+            }
+        }());
+    }
+
     return 0;
 }
