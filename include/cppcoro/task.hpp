@@ -9,9 +9,11 @@
 #include <cassert>
 #include <coroutine>
 
+#include "cppcoro/config.hpp"
 #include "cppcoro/awaitable_traits.hpp"
 #include "cppcoro/broken_promise.hpp"
 #include "cppcoro/detail/remove_rvalue_reference.hpp"
+#include "cppcoro/fmap.hpp"
 #include "cppcoro/logging.hpp"
 
 namespace cppcoro
@@ -31,6 +33,7 @@ namespace cppcoro
                     return false;
                 }
                 
+#if CPPCORO_COMPILER_SUPPORTS_SYMMETRIC_TRANSFER
                 template<typename PROMISE>
                 std::coroutine_handle<> await_suspend(std::coroutine_handle<PROMISE> coro) noexcept
                 {
@@ -38,6 +41,24 @@ namespace cppcoro
                         << " " << coro.promise().m_continuation.address();
                     return coro.promise().m_continuation;
                 }
+#else
+                // HACK: Need to add CPPCORO_NOINLINE to await_suspend() method
+				// to avoid MSVC 2017.8 from spilling some local variables in
+				// await_suspend() onto the coroutine frame in some cases.
+				// Without this, some tests in async_auto_reset_event_tests.cpp
+				// were crashing under x86 optimised builds.
+                template<typename PROMISE>
+                CPPCORO_NOINLINE
+                void await_suspend(std::coroutine_handle<PROMISE> coro) noexcept
+                {
+                    task_promise_base& promise = coro.promise();
+
+                    if (promise.m_state.exchange(true, std::memory_order_acq_rel))
+                    {
+                        promise.m_continuation.resume();
+                    }
+                }
+#endif
 
                 void await_resume() noexcept 
                 { 
@@ -47,6 +68,9 @@ namespace cppcoro
 
         public:
             task_promise_base() noexcept 
+#if !CPPCORO_COMPILER_SUPPORTS_SYMMETRIC_TRANSFER
+            : m_state(false)
+#endif
             {
                 DLOG << "call task_promise_base " << __FUNCTION__ << " " << this;
             }
@@ -63,14 +87,26 @@ namespace cppcoro
                 return final_awaitable{};
             }
 
+#if CPPCORO_COMPILER_SUPPORTS_SYMMETRIC_TRANSFER
             void set_continuation(std::coroutine_handle<> continuation) noexcept
             {
                 DLOG << "call task_promise_base " << __FUNCTION__ << " " << this << " " << continuation.address();
                 m_continuation = continuation;
             }
-        
+#else
+            bool try_set_continuation(std::coroutine_handle<> continuation) 
+            {
+                m_continuation = continuation;
+                return !m_state.exchange(true, std::memory_order_acq_rel);
+            }
+#endif
+
         private:
             std::coroutine_handle<> m_continuation;
+
+#if !CPPCORO_COMPILER_SUPPORTS_SYMMETRIC_TRANSFER
+            std::atomic<bool> m_state;
+#endif
         };
 
         template<typename T>
@@ -217,7 +253,7 @@ namespace cppcoro
             }
         
         private:
-            T* m_value;
+            T* m_value = nullptr;
             std::exception_ptr m_exception;
         };
     }
@@ -247,12 +283,20 @@ namespace cppcoro
                 return !m_coroutine || m_coroutine.done();
             }
 
+#if CPPCORO_COMPILER_SUPPORTS_SYMMETRIC_TRANSFER
             std::coroutine_handle<> await_suspend(std::coroutine_handle<> awaiting_coroutine) noexcept
             {
                 DLOG << "call task::awaitable_base " << __FUNCTION__ << " " << this;
                 m_coroutine.promise().set_continuation(awaiting_coroutine);
                 return m_coroutine;
             }
+#else
+            bool await_suspend(std::coroutine_handle<> awaiting_coroutine) noexcept
+            {
+                m_coroutine.resume();
+                return m_coroutine.promise().try_set_continuation(awaiting_coroutine);
+            }
+#endif
         };
 
     public:
@@ -374,21 +418,21 @@ namespace cppcoro
         template<typename T>
         task<T> task_promise<T>::get_return_object() noexcept
         {
-            DLOG << "call task_promise<T> " << __FUNCTION__ << " " << this << " " << task<T>::coroutine_handle_t::from_promise(*this).address();
-            return task<T>{task<T>::coroutine_handle_t::from_promise(*this)};
+            DLOG << "call task_promise<T> " << __FUNCTION__ << " " << this << " " << std::coroutine_handle<task_promise>::from_promise(*this).address();
+            return task<T>{std::coroutine_handle<task_promise>::from_promise(*this)};
         }
 
         inline task<void> task_promise<void>::get_return_object() noexcept
         {
-            DLOG << "call task_promise<void> " << __FUNCTION__ << " " << this << " " << task<void>::coroutine_handle_t::from_promise(*this).address();
-            return task<void>{task<void>::coroutine_handle_t::from_promise(*this)};
+            DLOG << "call task_promise<void> " << __FUNCTION__ << " " << this << " " << std::coroutine_handle<task_promise>::from_promise(*this).address();
+            return task<void>{std::coroutine_handle<task_promise>::from_promise(*this)};
         }
 
         template<typename T>
         task<T&> task_promise<T&>::get_return_object() noexcept
         {
-            DLOG << "call task_promise<T&> " << __FUNCTION__ << " " << this << " " << task<T&>::coroutine_handle_t::from_promise(*this).address();
-            return task<T&>{task<T&>::coroutine_handle_t::from_promise(*this)};
+            DLOG << "call task_promise<T&> " << __FUNCTION__ << " " << this << " " << std::coroutine_handle<task_promise>::from_promise(*this).address();
+            return task<T&>{std::coroutine_handle<task_promise>::from_promise(*this)};
         }
     }
 
@@ -397,7 +441,7 @@ namespace cppcoro
         -> task<detail::remove_rvalue_reference_t<typename awaitable_traits<AWAITABLE>::await_result_t>>
     {
         DLOG << "make_task";
-        co_return co_await static_cast<AWAITABLE>(awaitable);
+        co_return co_await static_cast<AWAITABLE&&>(awaitable);
         DLOG << "make_task return";
     }
 }

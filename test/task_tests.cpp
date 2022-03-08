@@ -41,7 +41,7 @@ int main()
         DLOG << "before main finished";
     }
 
-    // task doesn't start until awaited
+    // awaiting default-constructed task throws broken_promise
     {
         cppcoro::sync_wait([&]() -> cppcoro::task<>
         {
@@ -136,7 +136,7 @@ int main()
         assert(counted::active_count() == 0);
     }
 
-    // task of reference  type
+    // task of reference type
     {
         int value = 3;
         auto f = [&]() -> cppcoro::task<int&>
@@ -164,6 +164,182 @@ int main()
                 assert(&result == &value);
             }
         }());
+    }
+
+    // passing parameter by value to task coroutine calls move-constructor exactly once
+    {
+        counted::reset_counts();
+
+        auto f = [](counted arg) -> cppcoro::task<>
+        {
+            co_return;
+        };
+
+        counted c;
+
+        assert(counted::active_count() == 1);
+        assert(counted::default_construction_count == 1);
+        assert(counted::copy_construction_count == 0);
+        assert(counted::move_construction_count == 0);
+        assert(counted::destruction_count == 0);
+
+        {
+            auto t = f(c);
+            assert(counted::copy_construction_count == 1);
+            assert(counted::default_construction_count == 1);
+            assert(counted::move_construction_count == 1);
+            assert(counted::destruction_count == 1);
+            assert(counted::active_count() == 2);
+        }
+
+        assert(counted::active_count() == 1);
+    }
+
+    // task<void> fmap pipe operator
+    {
+        using cppcoro::fmap;
+
+        cppcoro::single_consumer_event event;
+
+        auto f = [&]() -> cppcoro::task<>
+        {
+            co_await event;
+            co_return;
+        };
+
+        auto t = f() | fmap([] {return 123;});
+
+        cppcoro::sync_wait(
+            cppcoro::when_all_ready(
+                [&]() -> cppcoro::task<>
+                {
+                    assert(co_await t == 123);
+                }(),
+                [&]() -> cppcoro::task<>
+                {
+                    event.set();
+                    co_return;
+                }()));
+    }
+
+    // task<int> fmap pipe operator
+    {
+        using cppcoro::task;
+        using cppcoro::fmap;
+        using cppcoro::sync_wait;
+        using cppcoro::make_task;
+
+        auto one = [&]() -> task<int>
+        {
+            co_return 1;
+        };
+
+        // subcase: r-value fmap / r-value lambda
+        {
+            auto t = one() | fmap([delta = 1](auto i) { return i + delta; });
+            assert(sync_wait(t) == 2);
+        }
+
+        // subcase: r-value fmap / l-value lambda
+        {
+            using namespace std::string_literals;
+
+            auto t = [&]
+            {
+                auto f = [prefix = "pfx"s](int x)
+                {
+                    return prefix + std::to_string(x);
+                };
+
+                return one() | fmap(f);
+            }();
+
+            assert(sync_wait(t) == "pfx1");
+        }
+
+        // subcase: l-value fmap / r-value lambda
+        {
+            using namespace std::string_literals;
+
+            auto t = [&]
+            {
+                auto addprefix = fmap([prefix = "a really really long prefix that prevents small string optimisation"s](int x)
+                {
+                    return prefix + std::to_string(x);
+                });
+
+                return one() | addprefix;
+            }();
+
+            assert(sync_wait(t) == "a really really long prefix that prevents small string optimisation1");
+        }
+
+        // subcase: l-value fmap / l-value lambda
+        {
+            using namespace std::string_literals;
+
+            task<std::string> t;
+            {
+                auto lambda = [prefix = "a really really long prefix that prevents small string optimisation"s](int x)
+                {
+                    return prefix + std::to_string(x);
+                };
+
+                auto addprefix = fmap(lambda);
+                t = make_task(one() | addprefix); 
+            }
+
+            assert(!t.is_ready());
+            assert(sync_wait(t) == "a really really long prefix that prevents small string optimisation1");
+        }
+    }
+    
+    // chained fmap pipe operations
+    {
+        using namespace std::string_literals;
+        using cppcoro::task;
+        using cppcoro::sync_wait;
+
+        auto prepend = [](std::string s)
+        {
+            using cppcoro::fmap;
+            return fmap([s = std::move(s)](const std::string& value) { return s + value; });
+        };
+
+        auto append = [](std::string s)
+        {
+            using cppcoro::fmap;
+            return fmap([s = std::move(s)](const std::string& value) { return value + s; });
+        };
+
+        auto asyncString = [](std::string s) -> task<std::string>
+        {
+            co_return std::move(s);
+        };
+
+        auto t = asyncString("base"s) | prepend("pre_"s) | append("_post"s);
+
+        assert(sync_wait(t) == "pre_base_post");
+    }
+
+    // lots of synchronous completions doestn't result in stack-overflow
+    {
+        auto completeSynchronously = []() -> cppcoro::task<int>
+        {
+            co_return 1;
+        };
+
+        auto run = [&]() -> cppcoro::task<>
+        {
+            int sum = 0;
+            for (int i = 0; i < 1'000'000; ++i)
+            {
+                sum += co_await completeSynchronously();
+            }
+            assert(sum == 1'000'000);
+        };
+
+        cppcoro::sync_wait(run());
     }
 
     return 0;
